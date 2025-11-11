@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EUR/USD AI Trading Bot</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .dashboard {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            padding: 30px;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            transition: transform 0.3s;
+        }
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+        .price-display {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #667eea;
+        }
+        .trade-btn {
+            width: 100%;
+            padding: 15px;
+            font-size: 1.2rem;
+            border-radius: 10px;
+            transition: all 0.3s;
+        }
+        .btn-buy {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            border: none;
+            color: white;
+        }
+        .btn-sell {
+            background: linear-gradient(135deg, #ee0979 0%, #ff6a00 100%);
+            border: none;
+            color: white;
+        }
+        .chart-container {
+            height: 300px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .trade-history {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .trade-item {
+            border-left: 4px solid #667eea;
+            padding: 10px;
+            margin: 10px 0;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }
+        .profit { color: #38ef7d; }
+        .loss { color: #ee0979; }
+        .ai-status {
+            position: relative;
+            padding-left: 30px;
+        }
+        .ai-status::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 20px;
+            height: 20px;
+            background: #38ef7d;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .signal-indicator {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+            margin: 5px;
+        }
+        .signal-buy {
+            background: #38ef7d;
+            color: white;
+        }
+        .signal-sell {
+            background: #ee0979;
+            color: white;
+        }
+        .signal-hold {
+            background: #ffa502;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="dashboard">
+            <div class="row mb-4">
+                <div class="col-12 text-center">
+                    <h1 class="mb-3"><i class="fas fa-robot"></i> EUR/USD AI Trading Bot</h1>
+                    <div class="ai-status d-inline-block">
+                        <span class="badge bg-success" id="botStatus">AI Stopped</span>
+                    </div>
+                    <div class="mt-3">
+                        <button class="btn btn-lg btn-success" id="startStopBtn" onclick="toggleBot()">
+                            <i class="fas fa-play"></i> Start Bot
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="stat-card">
+                        <h6><i class="fas fa-chart-line"></i> Current Price</h6>
+                        <div class="price-display" id="currentPrice">1.0850</div>
+                        <small id="priceChange">+0.0012 (0.11%)</small>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="stat-card">
+                        <h6><i class="fas fa-wallet"></i> Balance</h6>
+                        <div class="price-display" id="balance">$10,000</div>
+                        <small id="profitLoss">Profit: $0.00</small>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="stat-card">
+                        <h6><i class="fas fa-exchange-alt"></i> Open Positions</h6>
+                        <div class="price-display" id="openPositions">0</div>
+                        <small>Total Volume: 0.00</small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row mt-4">
+                <div class="col-md-8">
+                    <div class="card">
+                        <div class="card-header bg-primary text-white">
+                            <h5><i class="fas fa-brain"></i> AI Signal Analysis</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="aiSignal" class="text-center mb-3">
+                                <span class="signal-indicator signal-hold">ANALYZING...</span>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-6">
+                                    <strong>RSI:</strong> <span id="rsi">50.2</span>
+                                </div>
+                                <div class="col-6">
+                                    <strong>MACD:</strong> <span id="macd">Neutral</span>
+                                </div>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-6">
+                                    <strong>MA Cross:</strong> <span id="maCross">Neutral</span>
+                                </div>
+                                <div class="col-6">
+                                    <strong>Trend:</strong> <span id="trend">Sideways</span>
+                                </div>
+                            </div>
+                            <div class="progress mb-3">
+                                <div id="confidenceBar" class="progress-bar bg-success" role="progressbar" style="width: 50%">50% Confidence</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="chart-container mt-3">
+                        <canvas id="priceChart"></canvas>
+                    </div>
+
+                    <div class="row mt-3">
+                        <div class="col-6">
+                            <button class="trade-btn btn-buy" onclick="executeTrade('BUY')">
+                                <i class="fas fa-arrow-up"></i> BUY
+                            </button>
+                        </div>
+                        <div class="col-6">
+                            <button class="trade-btn btn-sell" onclick="executeTrade('SELL')">
+                                <i class="fas fa-arrow-down"></i> SELL
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-header bg-secondary text-white">
+                            <h5><i class="fas fa-history"></i> Trade History</h5>
+                        </div>
+                        <div class="card-body trade-history" id="tradeHistory">
+                            <p class="text-muted text-center">No trades yet</p>
+                        </div>
+                    </div>
+
+                    <div class="card mt-3">
+                        <div class="card-header bg-info text-white">
+                            <h5><i class="fas fa-cog"></i> Bot Settings</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" type="checkbox" id="autoTradeSwitch" checked>
+                                <label class="form-check-label" for="autoTradeSwitch">Auto Trading</label>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Risk Level</label>
+                                <select class="form-select" id="riskLevel">
+                                    <option value="low">Low</option>
+                                    <option value="medium" selected>Medium</option>
+                                    <option value="high">High</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Trade Size</label>
+                                <input type="number" class="form-control" id="tradeSize" value="0.1" step="0.01" min="0.01">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.3.0/chart.umd.min.js"></script>
+    <script>
+        // Trading Bot State
+        const state = {
+            balance: 10000,
+            initialBalance: 10000,
+            currentPrice: 1.0850,
+            openPositions: [],
+            tradeHistory: [],
+            priceHistory: [1.0850],
+            timeLabels: ['Now'],
+            botRunning: false,
+            priceInterval: null,
+            analysisInterval: null
+        };
+
+        // Chart Setup
+        const ctx = document.getElementById('priceChart').getContext('2d');
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: state.timeLabels,
+                datasets: [{
+                    label: 'EUR/USD',
+                    data: state.priceHistory,
+                    borderColor: '#667eea',
+                    backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: false
+                    }
+                }
+            }
+        });
+
+        // Mock API - Generate realistic price movements
+        function updatePrice() {
+            const change = (Math.random() - 0.5) * 0.0010;
+            state.currentPrice += change;
+            state.currentPrice = Math.round(state.currentPrice * 10000) / 10000;
+            
+            state.priceHistory.push(state.currentPrice);
+            state.timeLabels.push('');
+            
+            if (state.priceHistory.length > 50) {
+                state.priceHistory.shift();
+                state.timeLabels.shift();
+            }
+            
+            chart.update();
+            
+            document.getElementById('currentPrice').textContent = state.currentPrice.toFixed(4);
+            const changePercent = ((state.currentPrice - 1.0850) / 1.0850 * 100).toFixed(2);
+            const changeValue = (state.currentPrice - 1.0850).toFixed(4);
+            document.getElementById('priceChange').textContent = `${changeValue >= 0 ? '+' : ''}${changeValue} (${changePercent}%)`;
+            document.getElementById('priceChange').className = changeValue >= 0 ? 'profit' : 'loss';
+        }
+
+        // AI Analysis
+        function analyzeMarket() {
+            const prices = state.priceHistory.slice(-14);
+            const rsi = calculateRSI(prices);
+            const trend = prices[prices.length - 1] > prices[0] ? 'Bullish' : 'Bearish';
+            
+            document.getElementById('rsi').textContent = rsi.toFixed(1);
+            document.getElementById('trend').textContent = trend;
+            
+            let signal = 'HOLD';
+            let confidence = 50;
+            
+            if (rsi < 30) {
+                signal = 'BUY';
+                confidence = 70 + Math.random() * 20;
+            } else if (rsi > 70) {
+                signal = 'SELL';
+                confidence = 70 + Math.random() * 20;
+            } else {
+                confidence = 40 + Math.random() * 20;
+            }
+            
+            const signalClass = signal === 'BUY' ? 'signal-buy' : signal === 'SELL' ? 'signal-sell' : 'signal-hold';
+            document.getElementById('aiSignal').innerHTML = `<span class="signal-indicator ${signalClass}">${signal}</span>`;
+            document.getElementById('confidenceBar').style.width = `${confidence}%`;
+            document.getElementById('confidenceBar').textContent = `${confidence.toFixed(0)}% Confidence`;
+            
+            // Auto trade if enabled
+            if (document.getElementById('autoTradeSwitch').checked && confidence > 75 && Math.random() > 0.7) {
+                if (signal === 'BUY' || signal === 'SELL') {
+                    executeTrade(signal);
+                }
+            }
+        }
+
+        function calculateRSI(prices) {
+            if (prices.length < 2) return 50;
+            
+            let gains = 0, losses = 0;
+            for (let i = 1; i < prices.length; i++) {
+                const change = prices[i] - prices[i - 1];
+                if (change > 0) gains += change;
+                else losses -= change;
+            }
+            
+            const avgGain = gains / (prices.length - 1);
+            const avgLoss = losses / (prices.length - 1);
+            
+            if (avgLoss === 0) return 100;
+            const rs = avgGain / avgLoss;
+            return 100 - (100 / (1 + rs));
+        }
+
+        // Execute Trade
+        function executeTrade(type) {
+            const size = parseFloat(document.getElementById('tradeSize').value);
+            const position = {
+                id: Date.now(),
+                type: type,
+                entryPrice: state.currentPrice,
+                size: size,
+                timestamp: new Date().toLocaleTimeString()
+            };
+            
+            state.openPositions.push(position);
+            updateDisplay();
+            
+            // Auto-close position after random time (5-15 seconds)
+            setTimeout(() => closePosition(position.id), (5 + Math.random() * 10) * 1000);
+        }
+
+        function closePosition(positionId) {
+            const position = state.openPositions.find(p => p.id === positionId);
+            if (!position) return;
+            
+            const exitPrice = state.currentPrice;
+            const priceDiff = position.type === 'BUY' ? 
+                (exitPrice - position.entryPrice) : 
+                (position.entryPrice - exitPrice);
+            
+            const profit = priceDiff * position.size * 100000; // Standard lot calculation
+            state.balance += profit;
+            
+            state.tradeHistory.unshift({
+                ...position,
+                exitPrice: exitPrice,
+                profit: profit,
+                closedAt: new Date().toLocaleTimeString()
+            });
+            
+            state.openPositions = state.openPositions.filter(p => p.id !== positionId);
+            updateDisplay();
+            updateTradeHistory();
+        }
+
+        function updateDisplay() {
+            document.getElementById('balance').textContent = `$${state.balance.toFixed(2)}`;
+            const totalProfit = state.balance - state.initialBalance;
+            document.getElementById('profitLoss').textContent = `Profit: ${totalProfit >= 0 ? '+' : ''}$${totalProfit.toFixed(2)}`;
+            document.getElementById('profitLoss').className = totalProfit >= 0 ? 'profit' : 'loss';
+            document.getElementById('openPositions').textContent = state.openPositions.length;
+        }
+
+        function updateTradeHistory() {
+            const historyDiv = document.getElementById('tradeHistory');
+            if (state.tradeHistory.length === 0) {
+                historyDiv.innerHTML = '<p class="text-muted text-center">No trades yet</p>';
+                return;
+            }
+            
+            historyDiv.innerHTML = state.tradeHistory.slice(0, 10).map(trade => `
+                <div class="trade-item">
+                    <strong>${trade.type}</strong> ${trade.size} lots<br>
+                    Entry: ${trade.entryPrice.toFixed(4)}<br>
+                    Exit: ${trade.exitPrice.toFixed(4)}<br>
+                    <span class="${trade.profit >= 0 ? 'profit' : 'loss'}">
+                        ${trade.profit >= 0 ? '+' : ''}$${trade.profit.toFixed(2)}
+                    </span>
+                    <small class="text-muted d-block">${trade.closedAt}</small>
+                </div>
+            `).join('');
+        }
+
+        // Start the bot
+        function toggleBot() {
+            const btn = document.getElementById('startStopBtn');
+            const status = document.getElementById('botStatus');
+            
+            if (state.botRunning) {
+                // Stop bot
+                clearInterval(state.priceInterval);
+                clearInterval(state.analysisInterval);
+                state.botRunning = false;
+                btn.innerHTML = '<i class="fas fa-play"></i> Start Bot';
+                btn.classList.remove('btn-danger');
+                btn.classList.add('btn-success');
+                status.textContent = 'AI Stopped';
+                status.classList.remove('bg-success');
+                status.classList.add('bg-secondary');
+            } else {
+                // Start bot
+                state.priceInterval = setInterval(updatePrice, 2000);
+                state.analysisInterval = setInterval(analyzeMarket, 5000);
+                state.botRunning = true;
+                btn.innerHTML = '<i class="fas fa-stop"></i> Stop Bot';
+                btn.classList.remove('btn-success');
+                btn.classList.add('btn-danger');
+                status.textContent = 'AI Active';
+                status.classList.remove('bg-secondary');
+                status.classList.add('bg-success');
+                analyzeMarket();
+            }
+        }
+    </script>
+</body>
+</html>
